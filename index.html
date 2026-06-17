@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vella — Free CV builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=DM+Serif+Display:ital@1&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --black: #0a0a0a;
+    --white: #ffffff;
+    --gray-100: #f5f5f5;
+    --gray-200: #e8e8e8;
+    --gray-400: #999;
+    --gray-600: #555;
+    --border: 1.5px solid #0a0a0a;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  body.dark {
+    --black: #ffffff;
+    --white: #0a0a0a;
+    --gray-100: #181818;
+    --gray-200: #2a2a2a;
+    --gray-400: #666;
+    --gray-600: #aaa;
+    --border: 1.5px solid #ffffff;
+  }
+  body.dark { background: #0a0a0a; color: #ffffff; }
+
+  /* THEME TOGGLE */
+  .theme-toggle {
+    width: 37px; height: 37px;
+    border: var(--border);
+    background: var(--white);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--black);
+    transition: background 0.15s, color 0.15s;
+  }
+  .theme-toggle:hover { background: var(--black); color: var(--white); }
+  body.dark .theme-toggle:hover { background: var(--white); color: var(--black); }
+  html, body, #root { height: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--white);
+    color: var(--black);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-y: auto;
+  }
+  body.app-mode { overflow: hidden; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border: var(--border);
+    background: var(--white);
+    color: var(--black);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--black); color: var(--white); }
+  .btn-primary { background: var(--black); color: var(--white); }
+  .btn-primary:hover { background: #333; }
+  .btn-lg {
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px 32px;
+    font-family: var(--font-display);
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:disabled:hover { background: var(--white); color: var(--black); }
+
+  /* ── MODAL ── */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(10,10,10,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+    animation: fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--white);
+    border: var(--border);
+    padding: 32px;
+    width: 420px;
+    max-width: calc(100vw - 40px);
+    animation: slideUp 0.15s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* ── PAGE TRANSITIONS ── */
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pageOut {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-12px); }
+  }
+  .page-enter { animation: pageIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .page-exit  { animation: pageOut 0.3s ease both; position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .modal-body { font-size: 14px; color: var(--gray-600); line-height: 1.6; margin-bottom: 24px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── LANDING ── */
+  .landing { min-height: 100vh; display: flex; flex-direction: column; overflow-y: auto; }
+
+  .land-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 48px; height: 64px;
+    border-bottom: var(--border);
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px; font-weight: 400; font-style: italic; letter-spacing: -0.5px;
+  }
+
+  .land-hero {
+    border-bottom: var(--border);
+    padding: 96px 48px 80px;
+    display: flex; flex-direction: column; align-items: flex-start;
+    gap: 0;
+  }
+  .land-eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--gray-400);
+    margin-bottom: 20px;
+  }
+  .land-headline {
+    font-family: var(--font-display);
+    font-size: clamp(52px, 7vw, 88px);
+    font-weight: 700;
+    letter-spacing: -3px;
+    line-height: 0.95;
+    margin-bottom: 32px;
+    max-width: 900px;
+  }
+  .land-headline em { font-style: normal; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; }
+  .land-sub {
+    font-size: 18px; color: var(--gray-600); line-height: 1.6;
+    max-width: 520px; margin-bottom: 40px;
+  }
+  .land-cta-row { display: flex; align-items: center; gap: 20px; }
+  .land-cta-note { font-size: 13px; color: var(--gray-400); }
+
+  /* ── FEATURE STRIP ── */
+  .land-features {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: var(--border);
+  }
+  .land-feature {
+    padding: 36px 32px;
+    border-right: var(--border);
+  }
+  .land-feature:last-child { border-right: none; }
+  .land-feature-num {
+    font-family: var(--font-display);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--gray-400);
+    margin-bottom: 16px;
+  }
+  .land-feature-title {
+    font-family: var(--font-display);
+    font-size: 17px; font-weight: 700; letter-spacing: -0.3px;
+    margin-bottom: 8px;
+  }
+  .land-feature-desc { font-size: 13px; color: var(--gray-600); line-height: 1.6; }
+
+  /* ── HOW IT WORKS ── */
+  .land-how {
+    display: grid; grid-template-columns: 1fr 1fr;
+    border-bottom: var(--border);
+  }
+  .land-how-left {
+    padding: 64px 48px;
+    border-right: var(--border);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .land-how-right {
+    padding: 64px 48px;
+    display: flex; flex-direction: column; justify-content: center; gap: 32px;
+  }
+  .land-section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--gray-400); margin-bottom: 20px;
+  }
+  .land-how-headline {
+    font-family: var(--font-display);
+    font-size: 40px; font-weight: 700; letter-spacing: -1.5px;
+    line-height: 1.05; margin-bottom: 20px;
+  }
+  .land-how-sub { font-size: 15px; color: var(--gray-600); line-height: 1.7; }
+  .land-step { display: flex; gap: 20px; align-items: flex-start; }
+  .land-step-num {
+    font-family: var(--font-display);
+    font-size: 28px; font-weight: 700; letter-spacing: -1px;
+    line-height: 1; flex-shrink: 0; width: 36px;
+    color: var(--gray-200);
+  }
+  .land-step-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .land-step-desc { font-size: 13px; color: var(--gray-600); line-height: 1.6; }
+
+  /* ── PAIN SECTION ── */
+  .land-pain {
+    background: var(--black); color: var(--white);
+    padding: 64px 48px;
+    border-bottom: var(--border);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+  }
+  body.dark .land-pain { background: var(--white); color: var(--black); }
+  .land-pain-headline {
+    font-family: var(--font-display);
+    font-size: 36px; font-weight: 700; letter-spacing: -1px; line-height: 1.1;
+  }
+  .land-pain-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+  .land-pain-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    font-size: 14px; line-height: 1.5;
+  }
+  .land-pain-x { font-size: 16px; opacity: 0.3; flex-shrink: 0; margin-top: 1px; }
+  .land-pain-check { font-size: 16px; color: #7fff7f; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── BOTTOM CTA ── */
+  .land-bottom-cta {
+    padding: 80px 48px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    gap: 24px;
+    border-bottom: var(--border);
+  }
+  .land-bottom-headline {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 700; letter-spacing: -2px; line-height: 1;
+  }
+  .land-bottom-sub { font-size: 16px; color: var(--gray-600); max-width: 420px; }
+
+  /* ── FOOTER ── */
+  .land-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px;
+  }
+  .land-footer-note { font-size: 12px; color: var(--gray-400); }
+
+  /* ── APP ── */
+  .app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px;
+    border-bottom: var(--border); flex-shrink: 0;
+  }
+  .app-header-left { display: flex; align-items: center; gap: 16px; }
+  .back-btn {
+    font-size: 12px; font-weight: 500; color: var(--gray-400);
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-body); padding: 4px 0;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .back-btn:hover { color: var(--black); }
+  .header-divider { width: 1px; height: 20px; background: var(--gray-200); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* SIDEBAR */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  .sidebar {
+    width: 380px; flex-shrink: 0;
+    border-right: var(--border);
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); }
+
+  /* TABS */
+  .tabs {
+    display: flex; border-bottom: var(--border);
+    position: sticky; top: 0; background: var(--white); z-index: 10;
+  }
+  .tab {
+    flex: 1; padding: 12px 8px; font-size: 12px; font-weight: 500;
+    text-align: center; cursor: pointer; border: none; background: none;
+    color: var(--gray-400); border-bottom: 2px solid transparent;
+    transition: color 0.1s; font-family: var(--font-body); letter-spacing: 0.02em;
+  }
+  .tab.active { color: var(--black); border-bottom: 2px solid var(--black); }
+  .tab:hover:not(.active) { color: var(--black); }
+
+  /* FORM */
+  .section { border-bottom: var(--border); padding: 20px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-title {
+    font-family: var(--font-display); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--black);
+  }
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block; font-size: 11px; font-weight: 500; color: var(--gray-600);
+    margin-bottom: 5px; letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .field input, .field textarea {
+    width: 100%; border: var(--border); padding: 8px 10px;
+    font-size: 13px; font-family: var(--font-body);
+    background: var(--white); color: var(--black); outline: none;
+    transition: background 0.1s; resize: none;
+  }
+  .field input:focus, .field textarea:focus { background: var(--gray-100); }
+  .field textarea { min-height: 72px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* REPEAT BLOCKS */
+  .repeat-block { border: var(--border); margin-bottom: 10px; }
+  .repeat-block-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; cursor: pointer; user-select: none; background: var(--gray-100);
+  }
+  .repeat-block-title { font-size: 13px; font-weight: 500; color: var(--black); }
+  .repeat-block-body { padding: 12px; border-top: var(--border); }
+  .repeat-delete {
+    font-size: 11px; color: var(--gray-400); cursor: pointer;
+    padding: 2px 6px; border: 1px solid var(--gray-200);
+    background: none; font-family: var(--font-body);
+  }
+  .repeat-delete:hover { color: var(--black); border-color: var(--black); }
+  .add-btn {
+    width: 100%; padding: 10px; border: 1.5px dashed var(--gray-400);
+    background: none; font-size: 12px; font-weight: 500; color: var(--gray-600);
+    cursor: pointer; font-family: var(--font-body); transition: all 0.1s; margin-top: 4px;
+  }
+  .add-btn:hover { border-color: var(--black); color: var(--black); background: var(--gray-100); }
+
+  /* SKILLS */
+  .skills-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .skill-tag {
+    display: flex; align-items: center; gap: 4px; padding: 4px 10px;
+    border: var(--border); font-size: 12px; font-weight: 500;
+    background: var(--black); color: var(--white);
+  }
+  .skill-remove { cursor: pointer; opacity: 0.5; font-size: 14px; line-height: 1; background: none; border: none; color: inherit; padding: 0; }
+  .skill-remove:hover { opacity: 1; }
+  .skill-input-row { display: flex; gap: 6px; }
+  .skill-input-row input { flex: 1; }
+
+  /* PREVIEW */
+  .preview {
+    flex: 1; background: var(--gray-100); overflow-y: auto;
+    display: flex; flex-direction: column; align-items: center; padding: 32px 24px; gap: 16px;
+    min-width: 0;
+  }
+  .preview-label { font-size: 11px; font-weight: 500; color: var(--gray-400); letter-spacing: 0.06em; text-transform: uppercase; align-self: flex-start; }
+  .cv-doc-wrapper { width: 100%; display: flex; justify-content: center; }
+
+  /* CV DOC — always light, hardcoded colors so PDF export is never affected by dark mode */
+  .cv-doc {
+    width: 794px; min-height: 1123px; background: #ffffff;
+    border: 1.5px solid #0a0a0a; padding: 64px 72px;
+    font-family: 'Inter', sans-serif; color: #0a0a0a; font-size: 13px; line-height: 1.6; flex-shrink: 0;
+    transform-origin: top center;
+  }
+  .cv-header { margin-bottom: 32px; border-bottom: 3px solid #0a0a0a; padding-bottom: 24px; }
+  .cv-name { font-family: 'Space Grotesk', sans-serif; font-size: 38px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; margin-bottom: 6px; color: #0a0a0a; }
+  .cv-title { font-size: 15px; font-weight: 500; color: #555; margin-bottom: 14px; }
+  .cv-contact { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: #555; }
+  .cv-section { margin-bottom: 28px; }
+  .cv-section-title {
+    font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #0a0a0a;
+    border-bottom: 1.5px solid #0a0a0a; padding-bottom: 5px; margin-bottom: 14px;
+  }
+  .cv-summary { font-size: 13px; line-height: 1.7; color: #555; }
+  .cv-entry { margin-bottom: 16px; }
+  .cv-entry:last-child { margin-bottom: 0; }
+  .cv-entry-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; }
+  .cv-entry-title { font-weight: 600; font-size: 13px; color: #0a0a0a; }
+  .cv-entry-date { font-size: 12px; color: #999; white-space: nowrap; margin-left: 12px; }
+  .cv-entry-sub { font-size: 12px; color: #555; margin-bottom: 5px; font-weight: 500; }
+  .cv-bullets { padding-left: 14px; }
+  .cv-bullets li { font-size: 12px; color: #555; margin-bottom: 2px; line-height: 1.6; }
+  .cv-skills-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cv-skill { font-size: 11px; font-weight: 600; padding: 4px 10px; border: 1.5px solid #0a0a0a; letter-spacing: 0.03em; text-transform: uppercase; color: #0a0a0a; }
+  .cv-empty { color: #999; font-style: italic; }
+
+  /* TEMPLATES */
+  .template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px; }
+  .template-card { border: var(--border); padding: 14px; cursor: pointer; transition: background 0.1s; }
+  .template-card:hover { background: var(--gray-100); }
+  .template-card.selected { background: var(--black); color: var(--white); }
+  .template-card-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; font-family: var(--font-display); }
+  .template-card-desc { font-size: 11px; opacity: 0.6; }
+
+  /* OVERLAYS */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--black); color: var(--white);
+    padding: 12px 20px; font-size: 13px; font-weight: 500;
+    z-index: 300; pointer-events: none; opacity: 0; transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+  .downloading-overlay {
+    position: fixed; inset: 0; background: rgba(255,255,255,0.92);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999; flex-direction: column; gap: 12px;
+  }
+  .downloading-label { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+  .downloading-sub { font-size: 13px; color: var(--gray-600); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const STORAGE_KEY = 'cv_builder_data';
+const DEFAULT_DATA = {
+  personal: { name: '', title: '', email: '', phone: '', location: '', linkedin: '', website: '' },
+  summary: '', experience: [], education: [], skills: [], certifications: []
+};
+
+function uid() { return Math.random().toString(36).slice(2, 8); }
+function loadData() {
+  try { const r = localStorage.getItem(STORAGE_KEY); if (r) return { ...DEFAULT_DATA, ...JSON.parse(r) }; } catch(e) {}
+  return DEFAULT_DATA;
+}
+function saveData(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch(e) {} }
+
+/* ── MODAL ── */
+function Modal({ title, body, confirmLabel = 'Confirm', danger = false, onConfirm, onCancel }) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">{title}</div>
+        <div className="modal-body">{body}</div>
+        <div className="modal-actions">
+          <button className="btn" onClick={onCancel}>Cancel</button>
+          <button className={`btn btn-primary`} style={danger ? {background:'#c0392b', borderColor:'#c0392b'} : {}} onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── FIELD COMPONENTS ── */
+function Field({ label, value, onChange, placeholder, type = 'text' }) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || ''} />
+    </div>
+  );
+}
+function TextArea({ label, value, onChange, placeholder }) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || ''} />
+    </div>
+  );
+}
+function RepeatBlock({ title, onDelete, children }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="repeat-block">
+      <div className="repeat-block-header" onClick={() => setOpen(o => !o)}>
+        <span className="repeat-block-title">{title || 'Untitled'}</span>
+        <button className="repeat-delete" onClick={e => { e.stopPropagation(); onDelete(); }}>Remove</button>
+      </div>
+      {open && <div className="repeat-block-body">{children}</div>}
+    </div>
+  );
+}
+
+/* ── CV PREVIEW ── */
+function CVPreview({ data, previewRef }) {
+  const { personal, summary, experience, education, skills, certifications } = data;
+  const wrapperRef = useRef(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const update = () => {
+      const available = el.offsetWidth - 2; // 2px for border
+      const docWidth = 794;
+      setScale(available < docWidth ? available / docWidth : 1);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div className="cv-doc-wrapper" ref={wrapperRef}>
+    <div className="cv-doc" ref={previewRef} id="cv-preview" style={{transform: `scale(${scale})`, marginBottom: scale < 1 ? `${(scale - 1) * 1123}px` : 0}}>
+      <div className="cv-header">
+        <div className="cv-name">{personal.name || <span className="cv-empty">Your Name</span>}</div>
+        {personal.title && <div className="cv-title">{personal.title}</div>}
+        <div className="cv-contact">
+          {personal.email && <span>✉ {personal.email}</span>}
+          {personal.phone && <span>✆ {personal.phone}</span>}
+          {personal.location && <span>◎ {personal.location}</span>}
+          {personal.linkedin && <span>in {personal.linkedin}</span>}
+          {personal.website && <span>⌘ {personal.website}</span>}
+        </div>
+      </div>
+      {summary && <div className="cv-section"><div className="cv-section-title">Profile</div><div className="cv-summary">{summary}</div></div>}
+      {experience.length > 0 && (
+        <div className="cv-section">
+          <div className="cv-section-title">Experience</div>
+          {experience.map(exp => (
+            <div className="cv-entry" key={exp.id}>
+              <div className="cv-entry-header">
+                <div className="cv-entry-title">{exp.role || 'Role'}</div>
+                <div className="cv-entry-date">{[exp.start, exp.end].filter(Boolean).join(' – ')}</div>
+              </div>
+              <div className="cv-entry-sub">{exp.company}{exp.location ? `, ${exp.location}` : ''}</div>
+              {exp.bullets && exp.bullets.filter(b => b.trim()).length > 0 && (
+                <ul className="cv-bullets">{exp.bullets.filter(b => b.trim()).map((b, i) => <li key={i}>{b}</li>)}</ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {education.length > 0 && (
+        <div className="cv-section">
+          <div className="cv-section-title">Education</div>
+          {education.map(edu => (
+            <div className="cv-entry" key={edu.id}>
+              <div className="cv-entry-header">
+                <div className="cv-entry-title">{edu.degree || 'Degree'}</div>
+                <div className="cv-entry-date">{[edu.start, edu.end].filter(Boolean).join(' – ')}</div>
+              </div>
+              <div className="cv-entry-sub">{edu.institution}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {skills.length > 0 && (
+        <div className="cv-section">
+          <div className="cv-section-title">Skills</div>
+          <div className="cv-skills-grid">{skills.map((s, i) => <span className="cv-skill" key={i}>{s}</span>)}</div>
+        </div>
+      )}
+      {certifications.length > 0 && (
+        <div className="cv-section">
+          <div className="cv-section-title">Certifications</div>
+          {certifications.map(cert => (
+            <div className="cv-entry" key={cert.id}>
+              <div className="cv-entry-header">
+                <div className="cv-entry-title">{cert.name || 'Certification'}</div>
+                <div className="cv-entry-date">{cert.year}</div>
+              </div>
+              <div className="cv-entry-sub">{cert.issuer}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+    </div>
+  );
+}
+
+/* ── THEME TOGGLE ── */
+function ThemeToggle() {
+  const [dark, setDark] = useState(() => localStorage.getItem('vella_theme') === 'dark');
+  useEffect(() => { document.body.classList.toggle('dark', dark); }, [dark]);
+  useEffect(() => {
+    const saved = localStorage.getItem('vella_theme');
+    if (saved === 'dark') setDark(true);
+  }, []);
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    localStorage.setItem('vella_theme', next ? 'dark' : 'light');
+  };
+  return (
+    <button className="theme-toggle" onClick={toggle} aria-label="Toggle dark mode">
+      {dark ? '☀' : '☽'}
+    </button>
+  );
+}
+
+/* ── LANDING PAGE ── */
+function Landing({ onStart }) {
+  return (
+    <div className="landing">
+      <nav className="land-nav">
+        <div className="logo">Vella</div>
+        <div style={{display:'flex', alignItems:'center', gap:12}}>
+          <ThemeToggle />
+          <button className="btn btn-primary" onClick={onStart}>Get started</button>
+        </div>
+      </nav>
+
+      <section className="land-hero">
+        <div className="land-eyebrow">Free. No account. No paywall.</div>
+        <h1 className="land-headline">Your CV.<br/><em>No catch.</em></h1>
+        <p className="land-sub">Build a professional CV in minutes. Download it as a PDF instantly. No sign-up, no subscription, no watermark — ever.</p>
+        <div className="land-cta-row">
+          <button className="btn btn-primary btn-lg" onClick={onStart}>Build my CV →</button>
+          <span className="land-cta-note">Your data stays in your browser. Always.</span>
+        </div>
+      </section>
+
+      <div className="land-features">
+        {[
+          { n: '01', title: 'Completely free', desc: 'No trial period, no premium tier, no credit card. Free means free.' },
+          { n: '02', title: 'No account needed', desc: 'Open the page, build your CV, download it. Done. Your browser remembers your work.' },
+          { n: '03', title: 'Instant PDF export', desc: 'One click and your CV downloads. No paywall at the finish line like everyone else.' },
+          { n: '04', title: 'Private by design', desc: 'Your data never leaves your device. We have no server to send it to.' },
+        ].map(f => (
+          <div className="land-feature" key={f.n}>
+            <div className="land-feature-num">{f.n}</div>
+            <div className="land-feature-title">{f.title}</div>
+            <div className="land-feature-desc">{f.desc}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="land-how">
+        <div className="land-how-left">
+          <div className="land-section-label">How it works</div>
+          <div className="land-how-headline">Three steps.<br/>That's it.</div>
+          <div className="land-how-sub">We cut everything that doesn't help you get hired. No dark patterns, no fake progress bars, no "upgrade to continue."</div>
+        </div>
+        <div className="land-how-right">
+          {[
+            { n: '1', title: 'Fill in your details', desc: 'Personal info, work history, education, skills. Clean form, live preview updating as you type.' },
+            { n: '2', title: 'Watch it come together', desc: 'Your CV renders in real time on the right. Every field you fill instantly appears in the document.' },
+            { n: '3', title: 'Download your PDF', desc: 'Hit Download PDF. It generates in seconds and saves to your device. No account required.' },
+          ].map(s => (
+            <div className="land-step" key={s.n}>
+              <div className="land-step-num">{s.n}</div>
+              <div>
+                <div className="land-step-title">{s.title}</div>
+                <div className="land-step-desc">{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="land-pain">
+        <div className="land-pain-headline">Every other CV builder does this to you.</div>
+        <div>
+          <ul className="land-pain-list">
+            {[
+              ['✕', 'Build your entire CV, then hit a paywall at the download button'],
+              ['✕', 'Force you to create an account before you can do anything'],
+              ['✕', 'Add a watermark unless you pay $9.99/month'],
+              ['✕', 'Sell your personal and career data to third parties'],
+              ['✕', 'Cripple free templates so they look unprofessional'],
+              ['✓', 'Vella does none of this. Open, build, download.'],
+            ].map(([icon, text], i) => (
+              <li className="land-pain-item" key={i}>
+                <span className={i === 5 ? 'land-pain-check' : 'land-pain-x'}>{icon}</span>
+                <span style={i === 5 ? {fontWeight: 600} : {}}>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="land-bottom-cta">
+        <div className="land-bottom-headline">Ready to build your CV?</div>
+        <div className="land-bottom-sub">Takes about 10 minutes. Looks professional. Costs nothing.</div>
+        <button className="btn btn-primary btn-lg" onClick={onStart}>Get started →</button>
+      </div>
+
+      <footer className="land-footer">
+        <div className="logo" style={{fontSize:18}}>Vella</div>
+        <div className="land-footer-note">Free forever. No account. No nonsense.</div>
+      </footer>
+    </div>
+  );
+}
+
+/* ── BUILDER APP ── */
+function Builder({ onBack }) {
+  const [data, setData] = useState(loadData);
+  const [tab, setTab] = useState('Info');
+  const [skillInput, setSkillInput] = useState('');
+  const [toast, setToast] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [modal, setModal] = useState(null);
+  const previewRef = useRef(null);
+
+  useEffect(() => { saveData(data); }, [data]);
+
+  const updatePersonal = (field, val) => setData(p => ({ ...p, personal: { ...p.personal, [field]: val } }));
+
+  const addExp = () => setData(p => ({ ...p, experience: [...p.experience, { id: uid(), role: '', company: '', location: '', start: '', end: '', bullets: [''] }] }));
+  const removeExp = id => setData(p => ({ ...p, experience: p.experience.filter(e => e.id !== id) }));
+  const updateExp = (id, field, val) => setData(p => ({ ...p, experience: p.experience.map(e => e.id === id ? { ...e, [field]: val } : e) }));
+  const updateBullet = (id, idx, val) => setData(p => ({ ...p, experience: p.experience.map(e => e.id === id ? { ...e, bullets: e.bullets.map((b, i) => i === idx ? val : b) } : e) }));
+  const addBullet = (id) => setData(p => ({ ...p, experience: p.experience.map(e => e.id === id ? { ...e, bullets: [...e.bullets, ''] } : e) }));
+  const removeBullet = (id, idx) => setData(p => ({ ...p, experience: p.experience.map(e => e.id === id ? { ...e, bullets: e.bullets.filter((_, i) => i !== idx) } : e) }));
+
+  const addEdu = () => setData(p => ({ ...p, education: [...p.education, { id: uid(), degree: '', institution: '', start: '', end: '' }] }));
+  const removeEdu = id => setData(p => ({ ...p, education: p.education.filter(e => e.id !== id) }));
+  const updateEdu = (id, field, val) => setData(p => ({ ...p, education: p.education.map(e => e.id === id ? { ...e, [field]: val } : e) }));
+
+  const addSkill = () => {
+    const s = skillInput.trim();
+    if (!s || data.skills.includes(s)) return;
+    setData(p => ({ ...p, skills: [...p.skills, s] }));
+    setSkillInput('');
+  };
+  const removeSkill = s => setData(p => ({ ...p, skills: p.skills.filter(x => x !== s) }));
+
+  const addCert = () => setData(p => ({ ...p, certifications: [...p.certifications, { id: uid(), name: '', issuer: '', year: '' }] }));
+  const removeCert = id => setData(p => ({ ...p, certifications: p.certifications.filter(c => c.id !== id) }));
+  const updateCert = (id, field, val) => setData(p => ({ ...p, certifications: p.certifications.map(c => c.id === id ? { ...c, [field]: val } : c) }));
+
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+  const handleReset = () => {
+    setModal({
+      title: 'Clear all data?',
+      body: 'This will permanently delete everything in your CV. This cannot be undone.',
+      confirmLabel: 'Yes, clear it',
+      danger: true,
+      onConfirm: () => {
+        setData(DEFAULT_DATA);
+        localStorage.removeItem(STORAGE_KEY);
+        setModal(null);
+        showToast('Cleared');
+      }
+    });
+  };
+
+  const handleDownload = async () => {
+    if (!previewRef.current) return;
+    setDownloading(true);
+    try {
+      await new Promise(r => setTimeout(r, 150));
+      // Temporarily reset transform so html2canvas captures full 794px width
+      const el = previewRef.current;
+      const prevTransform = el.style.transform;
+      const prevMarginBottom = el.style.marginBottom;
+      el.style.transform = 'none';
+      el.style.marginBottom = '0';
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: 794,
+        windowWidth: 794,
+      });
+
+      el.style.transform = prevTransform;
+      el.style.marginBottom = prevMarginBottom;
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();   // 210mm
+      const pageH = pdf.internal.pageSize.getHeight();  // 297mm
+
+      // px per mm at scale=2: canvas is 2x, so 1mm = (canvas.width / pageW / 2) * 2 = canvas.width/pageW px
+      const pxPerMm = canvas.width / pageW;
+      const pageHeightPx = pageH * pxPerMm;
+      const totalPages = Math.ceil(canvas.height / pageHeightPx);
+
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) pdf.addPage();
+        // Slice the canvas for this page
+        const srcY = page * pageHeightPx;
+        const srcH = Math.min(pageHeightPx, canvas.height - srcY);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = srcH;
+        const ctx = sliceCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+        const sliceH = (srcH / canvas.width) * pageW;
+        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, sliceH);
+      }
+
+      const name = (data.personal.name || 'CV').replace(/\s+/g, '_');
+      pdf.save(`${name}_CV.pdf`);
+      showToast('Downloaded');
+    } catch(e) {
+      console.error(e);
+      showToast('Download failed — try again');
+    }
+    setDownloading(false);
+  };
+
+  const TABS = ['Info', 'Experience', 'Education', 'Skills', 'Design'];
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="app-header-left">
+          <button className="back-btn" onClick={onBack}>← Back</button>
+          <div className="header-divider" />
+          <div className="logo" style={{fontSize:20}}>Vella</div>
+        </div>
+        <div className="header-actions">
+          <ThemeToggle />
+          <button className="btn" onClick={handleReset}>Clear</button>
+          <button className="btn btn-primary" onClick={handleDownload} disabled={downloading}>
+            {downloading ? 'Generating…' : 'Download PDF'}
+          </button>
+        </div>
+      </header>
+
+      <div className="main">
+        <aside className="sidebar">
+          <div className="tabs">
+            {TABS.map(t => (
+              <button key={t} className={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>{t}</button>
+            ))}
+          </div>
+
+          {tab === 'Info' && (
+            <>
+              <div className="section">
+                <div className="section-header"><span className="section-title">Personal</span></div>
+                <Field label="Full name" value={data.personal.name} onChange={v => updatePersonal('name', v)} placeholder="Jane Smith" />
+                <Field label="Job title" value={data.personal.title} onChange={v => updatePersonal('title', v)} placeholder="Senior Product Designer" />
+                <div className="field-row">
+                  <Field label="Email" value={data.personal.email} onChange={v => updatePersonal('email', v)} placeholder="jane@email.com" />
+                  <Field label="Phone" value={data.personal.phone} onChange={v => updatePersonal('phone', v)} placeholder="+1 555 0100" />
+                </div>
+                <Field label="Location" value={data.personal.location} onChange={v => updatePersonal('location', v)} placeholder="New York, NY" />
+                <Field label="LinkedIn" value={data.personal.linkedin} onChange={v => updatePersonal('linkedin', v)} placeholder="linkedin.com/in/jane" />
+                <Field label="Website" value={data.personal.website} onChange={v => updatePersonal('website', v)} placeholder="janesmith.com" />
+              </div>
+              <div className="section">
+                <div className="section-header"><span className="section-title">Profile summary</span></div>
+                <TextArea label="Summary" value={data.summary} onChange={v => setData(p => ({ ...p, summary: v }))} placeholder="A brief paragraph about who you are and what you do..." />
+              </div>
+            </>
+          )}
+
+          {tab === 'Experience' && (
+            <div className="section">
+              <div className="section-header"><span className="section-title">Work experience</span></div>
+              {data.experience.map(exp => (
+                <RepeatBlock key={exp.id} title={exp.role || exp.company || 'New role'} onDelete={() => removeExp(exp.id)}>
+                  <Field label="Job title" value={exp.role} onChange={v => updateExp(exp.id, 'role', v)} placeholder="Product Designer" />
+                  <Field label="Company" value={exp.company} onChange={v => updateExp(exp.id, 'company', v)} placeholder="Acme Corp" />
+                  <Field label="Location" value={exp.location} onChange={v => updateExp(exp.id, 'location', v)} placeholder="Remote" />
+                  <div className="field-row">
+                    <Field label="Start" value={exp.start} onChange={v => updateExp(exp.id, 'start', v)} placeholder="Jan 2022" />
+                    <Field label="End" value={exp.end} onChange={v => updateExp(exp.id, 'end', v)} placeholder="Present" />
+                  </div>
+                  <div className="field" style={{marginBottom:4}}><label>Bullet points</label></div>
+                  {(exp.bullets || []).map((b, i) => (
+                    <div key={i} style={{display:'flex', gap:6, marginBottom:6, alignItems:'center'}}>
+                      <div className="field" style={{flex:1, marginBottom:0}}>
+                        <input value={b} onChange={e => updateBullet(exp.id, i, e.target.value)} placeholder={`Achievement ${i + 1}…`} />
+                      </div>
+                      {(exp.bullets.length > 1) && (
+                        <button className="repeat-delete" onClick={() => removeBullet(exp.id, i)} style={{flexShrink:0}}>–</button>
+                      )}
+                    </div>
+                  ))}
+                  <button className="add-btn" style={{marginTop:0}} onClick={() => addBullet(exp.id)}>+ Add bullet</button>
+                </RepeatBlock>
+              ))}
+              <button className="add-btn" onClick={addExp}>+ Add role</button>
+            </div>
+          )}
+
+          {tab === 'Education' && (
+            <div className="section">
+              <div className="section-header"><span className="section-title">Education</span></div>
+              {data.education.map(edu => (
+                <RepeatBlock key={edu.id} title={edu.degree || edu.institution || 'New entry'} onDelete={() => removeEdu(edu.id)}>
+                  <Field label="Degree / qualification" value={edu.degree} onChange={v => updateEdu(edu.id, 'degree', v)} placeholder="BSc Computer Science" />
+                  <Field label="Institution" value={edu.institution} onChange={v => updateEdu(edu.id, 'institution', v)} placeholder="University of Auckland" />
+                  <div className="field-row">
+                    <Field label="Start" value={edu.start} onChange={v => updateEdu(edu.id, 'start', v)} placeholder="2016" />
+                    <Field label="End" value={edu.end} onChange={v => updateEdu(edu.id, 'end', v)} placeholder="2020" />
+                  </div>
+                </RepeatBlock>
+              ))}
+              <button className="add-btn" onClick={addEdu}>+ Add education</button>
+              <div style={{marginTop:24}}>
+                <div className="section-header"><span className="section-title">Certifications</span></div>
+                {data.certifications.map(cert => (
+                  <RepeatBlock key={cert.id} title={cert.name || 'New certification'} onDelete={() => removeCert(cert.id)}>
+                    <Field label="Certification name" value={cert.name} onChange={v => updateCert(cert.id, 'name', v)} placeholder="AWS Solutions Architect" />
+                    <Field label="Issuing body" value={cert.issuer} onChange={v => updateCert(cert.id, 'issuer', v)} placeholder="Amazon Web Services" />
+                    <Field label="Year" value={cert.year} onChange={v => updateCert(cert.id, 'year', v)} placeholder="2023" />
+                  </RepeatBlock>
+                ))}
+                <button className="add-btn" onClick={addCert}>+ Add certification</button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'Skills' && (
+            <div className="section">
+              <div className="section-header"><span className="section-title">Skills</span></div>
+              <div className="skills-tags">
+                {data.skills.map(s => (
+                  <span className="skill-tag" key={s}>{s}<button className="skill-remove" onClick={() => removeSkill(s)}>×</button></span>
+                ))}
+              </div>
+              <div className="skill-input-row">
+                <div className="field" style={{flex:1, marginBottom:0}}>
+                  <input value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSkill()} placeholder="Type a skill, press Enter" />
+                </div>
+                <button className="btn" onClick={addSkill} style={{flexShrink:0}}>Add</button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'Design' && (
+            <div className="section">
+              <div className="section-header"><span className="section-title">Template</span></div>
+              <p style={{fontSize:12, color:'var(--gray-600)', marginBottom:12}}>More templates coming. Currently using Bold.</p>
+              <div className="template-grid">
+                <div className="template-card selected"><div className="template-card-name">Bold</div><div className="template-card-desc">Strong lines, high contrast</div></div>
+                {['Minimal','Classic','Two-column'].map(t => (
+                  <div className="template-card" key={t} style={{opacity:0.4, cursor:'not-allowed'}}><div className="template-card-name">{t}</div><div className="template-card-desc">Coming soon</div></div>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+
+        <div className="preview">
+          <div className="preview-label">Live preview — A4</div>
+          <CVPreview data={data} previewRef={previewRef} />
+        </div>
+      </div>
+
+      {modal && (
+        <Modal
+          title={modal.title}
+          body={modal.body}
+          confirmLabel={modal.confirmLabel}
+          danger={modal.danger}
+          onConfirm={modal.onConfirm}
+          onCancel={() => setModal(null)}
+        />
+      )}
+
+      {downloading && (
+        <div className="downloading-overlay">
+          <div className="downloading-label">Generating your PDF…</div>
+          <div className="downloading-sub">This takes a few seconds</div>
+        </div>
+      )}
+
+      <div className={`toast${toast ? ' show' : ''}`}>{toast}</div>
+    </div>
+  );
+}
+
+/* ── ROOT ── */
+function App() {
+  const [view, setView] = useState('landing');
+  const [animClass, setAnimClass] = useState('page-enter');
+  const [displayed, setDisplayed] = useState('landing');
+
+  const navigate = (target) => {
+    setAnimClass('page-exit');
+    setTimeout(() => {
+      setDisplayed(target);
+      setView(target);
+      setAnimClass('page-enter');
+      document.body.classList.toggle('app-mode', target === 'builder');
+    }, 300);
+  };
+
+  useEffect(() => {
+    document.body.classList.toggle('app-mode', displayed === 'builder');
+  }, []);
+
+  const isBuilder = displayed === 'builder';
+  return (
+    <div style={{position:'relative', width:'100%', height: isBuilder ? '100%' : 'auto', overflow: isBuilder ? 'hidden' : 'visible'}}>
+      <div className={animClass} style={{width:'100%', height: isBuilder ? '100%' : 'auto'}}>
+        {isBuilder
+          ? <Builder onBack={() => navigate('landing')} />
+          : <Landing onStart={() => navigate('builder')} />
+        }
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
